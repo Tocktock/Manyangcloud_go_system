@@ -5,5 +5,5 @@ import(
 )
 
 func main()  {
-	fmt.Println("Kawai")
+	fmt.Println( true && 'test')
 }

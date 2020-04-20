@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"flag"
-	//"sync"
+	"sync"
 	"net/http"
 	//"io/ioutil"
 	"encoding/json"
@@ -13,9 +13,10 @@ import (
 	"github.com/gorilla/websocket"
 
 	"manyangcloud_jwt"
-	"manyangcloud_config"
 	"manyangcloud_utils"
 	"manyangcloud_mongo"
+	"manyangcloud_config"
+	"manyangcloud_asyncq"	
 )
 
 var addr = flag.String("addr", "0.0.0.0:1200", "http service address")
@@ -82,18 +83,43 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 					    if in.Type == "validate-stored-jwt-token" {  sendMsg("^vAr^", "stored-jwt-token-valid","noop", c) }
 					}
 					break;
+				case "rapid-test-user-avail":
+					tobj := manyangcloud_mongo.NewRapidTestUserAvailTask(in.Data, c);
+					manyangcloud_asyncq.TaskQueue <- tobj					
+					break;
+				case "create-user":
+					tobj := manyangcloud_mongo.NewCreateUserTask(in.Data, c);
+					manyangcloud_asyncq.TaskQueue <- tobj
+					break;
+				
 				default:
 					break;
 			}
 		}
 }
 
+func handleUI(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	component := params["component"]
+	subcomponent := params["subcomponent"]
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json");
+	fmt.Println(component);
+	var wg sync.WaitGroup	
+	wg.Add(1)
+	
+	tobj :=  manyangcloud_mongo.NewGetDocumentsTask("UI",component,subcomponent, w, &wg); //notice the pointer to the wait group
+	manyangcloud_asyncq.TaskQueue <- tobj
+		
+	wg.Wait(); 
+	fmt.Println("Wait Group Finished Success...");
+}
+
 func main() {
 	
-	//manyangcloud_asyncq.StartTaskDispatcher(9)
+	manyangcloud_asyncq.StartTaskDispatcher(9)
 	//go manyangcloud_sse.ConfigureSystemHeartbeat()
 	//go manyangcloud_sse.StartSSE()
-
 	flag.Parse()
 	log.SetFlags(0)	
 	
@@ -104,7 +130,7 @@ func main() {
     r.HandleFunc("/api", handleAPI)
 	//r.HandleFunc("/pty", manyangcloud_wspty.HandleWsPty)
 	//Rest API
-	//r.HandleFunc("/rest/api/ui/{component}/{subcomponent}", handleUI)
+	r.HandleFunc("/rest/api/ui/{component}/{subcomponent}", handleUI)
 	
 	http.ListenAndServeTLS(*addr,"/etc/letsencrypt/live/manyangcloud.com/cert.pem", "/etc/letsencrypt/live/manyangcloud.com/privkey.pem" , r)
 
