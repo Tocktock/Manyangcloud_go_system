@@ -17,6 +17,7 @@ import (
 	"manyangcloud_mongo"
 	"manyangcloud_config"
 	"manyangcloud_asyncq"	
+	"manyangcloud_wspty"	
 )
 
 var addr = flag.String("addr", "0.0.0.0:1200", "http service address")
@@ -128,7 +129,7 @@ func main() {
 
 	//Websocket API
     r.HandleFunc("/api", handleAPI)
-	//r.HandleFunc("/pty", manyangcloud_wspty.HandleWsPty)
+	r.HandleFunc("/pty", manyangcloud_wspty.HandleWsPty)
 	//Rest API
 	r.HandleFunc("/rest/api/ui/{component}/{subcomponent}", handleUI)
 	
